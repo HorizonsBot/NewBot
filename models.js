@@ -23,15 +23,8 @@ var userSchema = mongoose.Schema({
 });
 
 var reminderSchema = mongoose.Schema({
-  // slack_DM_ID: String,
-  subject: {
-    //required: true,
-    type: String
-  },
-  day: {
-    //required: true,
-    type: String
-  },
+  subject: String,
+  day: String,
   googCalID: String,
   reqID: String
 })
@@ -43,7 +36,7 @@ var meetingSchema = mongoose.Schema({
   subject: String,
   location: String,
   createdAt: String,
-  reuesterId: String
+  requesterId: String
 })
 
 var User = mongoose.model('User', userSchema);

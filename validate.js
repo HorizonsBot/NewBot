@@ -3,7 +3,7 @@ var token = process.env.SLACK_SECRET || '';
 var web = new WebClient(token);
 var rtm = new RtmClient(token);
 
-var  {User, Reminder, Meeting} = require('./models');
+var {User, Reminder, Meeting} = require('./models');
 var {getSlots} = require('./getSlots');
 var {getConObject} = require('./getConObject');
 var axios = require('axios');
@@ -43,14 +43,14 @@ var timeCheck = function(user, message){
   var hourNow = date.getHours();
   var meetingHour = parseInt(user.pendingState.time.substring(0,2));
   if(meetingHour - hourNow < 4 ){
-      obj.attachments[0].text = `Too soon bro`;
+      obj.attachments[0].text = `Too soon to schedule a meeting bro`;
       obj.attachments.actions = [{
         "name": "cancel",
         "text": "Cancel",
         "type": "button",
         "value": "cancel"
       }]
-      web.chat.postMessage(message.channel, "Scheduler Bot", obj,function(err, res) {
+      web.chat.postMessage(message.channel, "Scheduler Bot", obj, function(err, res) {
           if (err) console.log('Error:', err);
           else console.log('Message sent: ', res);
      });
@@ -106,9 +106,10 @@ var findAttendeesHere = function(user){
 }
 
 var pendingFunction = function(user, attendees){
+  var requester = user;
   console.log("entered pending function saving meeting in database");
   var state = user.pendingState;
-  var meeting = new models.Meeting({
+  var meeting = new Meeting({
     eventId: meetings,
     date: state.date,
     time: state.time,
@@ -121,7 +122,7 @@ var pendingFunction = function(user, attendees){
     console.log("sending direct message to everyone");
     if(attendee.email===''){
       User.findOne({slack_ID:attendee.slack_ID},function(err,user){
-        rtm.sendMessage('People want access to your calendar. Use this link to give access to your google cal account ' + process.env.DOMAIN + '/connect?auth_id='
+        rtm.sendMessage(`User ${requester.slack_Username} is trying to schedule a meeting with you and the scheduler bot needs access to your Google calendar. Use this link to grant access: ` + process.env.DOMAIN + '/connect?auth_id='
         + user._id, user.slack_DM_ID);
       });
     }
@@ -196,6 +197,17 @@ var checkConflict = function(user){
   })
 }
 
+var setString = function(myString){
+  var myArray = myString.split(' ');
+  myArray.forEach(function(item,index){
+    if(item[0]==='<'){
+      item = item.substring(2,item.length-1);
+      myArray[index] = rtm.dataStore.getUserById(item).real_name;
+    }
+  });
+  return myArray.join(' ');
+}
+
 
 var validate = function(user, message){
   console.log("entered validation");
@@ -211,7 +223,8 @@ var validate = function(user, message){
         rtm.sendMessage("People are unavailable, the request has been sent to them, meeting will be scheduled once they accept it.", user.slack_DM_ID);
       } else if (response === 'NoConflict'){
         console.log("there was no conflict");
-        obj.attachments[0].text = `Schedule meeting with ${inviteString} on ${state.date} ${state.time} about ${state.subject}`;
+        var inviteString = setString(message.text);
+        obj.attachments[0].text = `Schedule meeting with ${inviteString} on ${user.pendingState.date} ${user.pendingState.time} about ${user.pendingState.subject}`;
         web.chat.postMessage(message.channel, "Scheduler Bot", obj,function(err, res) {
           if (err) console.log('Error:', err);
           else console.log('Message sent: ', res);
