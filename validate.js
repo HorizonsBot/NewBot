@@ -196,6 +196,17 @@ var checkConflict = function(user){
   })
 }
 
+var setString = function(myString){
+  var myArray = myString.split(' ');
+  myArray.forEach(function(item,index){
+    if(item[0]==='<'){
+      item = item.substring(2,item.length-1);
+      myArray[index] = rtm.dataStore.getUserById(item).real_name;
+    }
+  });
+  return myArray.join(' ');
+}
+
 
 var validate = function(user, message){
   console.log("entered validation");
@@ -211,6 +222,7 @@ var validate = function(user, message){
         rtm.sendMessage("People are unavailable, the request has been sent to them, meeting will be scheduled once they accept it.", user.slack_DM_ID);
       } else if (response === 'NoConflict'){
         console.log("there was no conflict");
+        var inviteString = setString(message.text);
         obj.attachments[0].text = `Schedule meeting with ${inviteString} on ${state.date} ${state.time} about ${state.subject}`;
         web.chat.postMessage(message.channel, "Scheduler Bot", obj,function(err, res) {
           if (err) console.log('Error:', err);
