@@ -196,6 +196,7 @@ var checkConflict = function(user){
   })
 }
 
+
 var validate = function(user, message){
   console.log("entered validation");
   if(!timeCheck(user, message)){
