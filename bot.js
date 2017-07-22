@@ -36,6 +36,8 @@ var obj = {
   ]
 }
 
+var {validate} = require('./validate')
+
 var taskHandler = function({result}, message, state){
   if(result.parameters.date && result.parameters.subject){
     state.date = result.parameters.date; state.subject = result.parameters.subject;
@@ -52,13 +54,15 @@ var taskHandler = function({result}, message, state){
     rtm.sendMessage(result.fulfillment.speech, message.channel);
   } else if(result.parameters.date){
     state.date = result.parameters.date;
-    rtm.sendMessage(result.fulfillment.speech, message.channel)
+    rtm.sendMessage(result.fulfillment.speech, message.channel);
+  }else{
+    rtm.sendMessage(result.fulfillment.speech, message.channel);
   }
   return state;
 }
 
 var taskFunction = function(data, message, user){
-  var state = user.pendingState
+  var state = user.pendingState;
   if(!state.date || !state.subject){
       state = taskHandler(data, message, state);
   } else if(state.date && state.subject){
@@ -70,51 +74,136 @@ var taskFunction = function(data, message, user){
   user.save();
 }
 
-var taskPath = function (user) {
+var setTask = function(user, message){
 
-    if(user){
-      var state = user.pendingState;
-      var new_event = {
-        "end": {
-          "date": state.date
-        },
-        "start": {
-          "date": state.date
-        },
-        "description": "Chief Keef is a fucking legend",
-        "summary": state.subject
-      }
-      return axios.post(`https://www.googleapis.com/calendar/v3/calendars/primary/events?access_token=${user.googleAccount.access_token}`, new_event)
-      .then(function(response){
+  var temp = encodeURIComponent(message.text);
 
-        var reminder = new Reminder({
-          subject: state.subject,
-          day: state.date,
-          googCalID: user.googleAccount.profile_ID,
-          reqID: user.slack_ID
-        })
+  axios.get(`https://api.api.ai/api/query?v=20150910&query=${temp}&lang=en&sessionId=${message.user}`, {
+    "headers": {
+      "Authorization":"Bearer 678861ee7c0d455287f791fd46d1b344"
+    },
+  })
+  .then(function({data}){
+    taskFunction(data, message, user);
+  })
+}
 
-        reminder.save(function(err) {
-          if(err) {
-            console.log('there is an error', err);
-          } else {
-            console.log('saved reminder in mongo');
-          }
-        });
+var meetingHandler = function(data, message, user){
 
-        if(response.status === 200){
-          return true;
-        }else{
-          return false;
-        }
-
-      })
-      .catch(function(err){
-        console.log(err);
-      })
+  var state = user.pendingState;
+  if(result.parameters.date && result.parameters.time && result.parameters.invitees[0]){
+    state.date = result.parameters.date;
+    state.time = result.parameters.time;
+    state.invitees = result.parameters.invitees;
+    return {state: state, status: true}
+  }
+  else{
+    if(result.parameters.subject){
+      state.subject = result.parameters.subject;
     }
+    if(result.parameters.date){
+      state.date = result.parameters.date;
+    }
+    if(result.parameters.time){
+      state.time = result.parameters.time;
+    }
+    if(result.parameters.invitees[0]){
+      state.invitees = result.parameters.invitees;
+    }
+    rtm.sendMessage(result.fulfillment.speech, message.channel);
+    return {state: state, status: false};
+  }
+}
+
+var meetingFunction = function(data, message, user){
+  var state = user.pendingState;
+  if(!state.date || !state.invitees[0] || !state.time){
+    state = meetingHandler(data, message, user).state;
+    status = meetingHandler(data, message, user).status;
+  } else if(state.date && state.time && state.invitees[0]){
+    rtm.sendMessage("Reply to previous task status", message.channel);
+    return;
+  } else {
+    state = meetingHandler(data, message, user).state;
+    status = meetingHandler(data, message, user).status;
+  }
+  user.pendingState = state;
+  user.save(function(user){
+    if(!status){
+      console.log("status is false and asking user for more info");
+      return;
+    }
+    else{
+      console.log("status is true and entering validation");
+      validate(user, message);
+    }
+  });
+}
+
+var setString = function(myString, state){
+  var myArray = myString.split(' ');
+  myArray.forEach(function(item,index){
+    if(item[0]==='<'){
+      item = item.substring(2,item.length-1);
+      state.inviteesBySlackid.push(item);
+      myArray[index] = rtm.dataStore.getUserById(item).real_name;
+    }
+  });
+  return myArray.join(' ');
+}
+
+var setMeeting = function(user, message){
+  console.log("entered setMeeting function");
+  var reqString = message.text;
+  var promise = Promise.resolve(user);
+
+  if(message.text.indexOf('with') !== -1){
+    console.log("invitees have been provided, setting state and reqString");
+    reqString = setString(message.text , user.pendingState);
+    promise = user.save();
+  }
+
+  promise
+  .then(function(user){
+    var temp = encodeURIComponent(reqString);
+    axios.get(`https://api.api.ai/api/query?v=20150910&query=${temp}&lang=en&sessionId=${message.user}`, {
+      "headers": {
+        "Authorization":"Bearer 678861ee7c0d455287f791fd46d1b344"
+      },
+    })
+    .then(function({data}){
+      meetingFunction(data, message, user);
+    })
+  })
+}
+
+var mainResponseFunction = function(user, message){
+  console.log("reached main response function");
+  if(user.active===0){
+    console.log("user was not active checking if reminder or meeting");
+    if(message.text.indexOf('remind') !== -1){
+      console.log("user wants task setting active=1");
+      user.active = 1;
+    }else if(message.text.indexOf('meeting') !== -1){
+      console.log("user wants meeting setting active=2");
+      user.active = 2;
+    }else {
+      console.log("user is wasting time");
+      sendNormalResponse(message);
+      return;
+    }
+  }
+
+  if(user.active===1){
+    console.log("sending to setTask");
+    setTask(user, message);
+  }else {
+    console.log("sending to setMeeting");
+    setMeeting(user, message);
+  }
 
 }
+
 
 rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message){
 
@@ -128,80 +217,54 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message){
 
   User.findOne({slack_ID : message.user})
   .then(function(user){
-
-    // create user
     if(!user){
+      console.log("did not find user creating one");
       var user = new User({
         default_meeting_len: 30,
         slack_ID: message.user,
         slack_Username: slackUser.profile.real_name,
         slack_Email: slackUser.profile.email,
-        slack_DM_ID: message.channel
+        slack_DM_ID: message.channel,
+        active: 0
       })
       return user.save();
     }
-
-    // return existing user
     else{
-      return user;
+      console.log("did find user checking if active or not.");
+      if(user.active !== 0){
+        console.log("user was active sending to mainResponseFunction");
+        mainResponseFunction(user, message);
+        return;
+      }
+      else{
+        console.log("user was not active");
+        return user;
+      }
     }
   })
   .then(function(user){
-
-    // if not registered with google yet
-
-    if(!user.googleAccount.access_token){
+    console.log("user was not active checking if has google auth or not.");
+    if(user){
+      if(!user.googleAccount.access_token){
+        console.log("user does not have google auth");
         web.chat.postMessage(message.channel,
           'Use this link to give access to your google cal account ' + process.env.DOMAIN + '/connect?auth_id='
           + user._id);
           return;
-    }
-
-    else {
-
-         var promise = Promise.resolve(user);
-
-         if(message.text.indexOf('schedule')!==-1){
-           message.text = setInvitees(message.text , user.pendingState);
-           promise = user.save();
-         }
-
-         promise
-         .then(function(user){
-
-           var temp = encodeURIComponent(message.text);
-
-           return axios.get(`https://api.api.ai/api/query?v=20150910&query=${temp}&lang=en&sessionId=${message.user}`, {
-             "headers": {
-               "Authorization":"Bearer 678861ee7c0d455287f791fd46d1b344"
-             },
-           })
-
-         })
-         .then(function({ data }){
-
-           if(message.text.indexOf("schedule")!==-1){
-             meetingFunction(data, message, user); //cccccc
-           }
-           else{
-             taskFunction(data, message, user);
-           }
-
-         })
-         .catch(function(error){
-           console.log(error);
-         })
-    }
-
-  })
-  .catch(function(err){
-    console.log(err);
-  })
-
+        }
+        else {
+          console.log("user was not active but has google auth now sending to mainResponseFunction");
+          if(user)mainResponseFunction(user, message);
+          else return;
+        }
+      }
+    })
+    .catch(function(err){
+      console.log(err);
+    })
 });
 
 module.exports = {
-  rtm,
-  web,
-  taskPath
-}
+    rtm,
+    web,
+  }

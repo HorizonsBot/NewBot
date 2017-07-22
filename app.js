@@ -3,7 +3,7 @@
 
 var mongoose = require('mongoose');
 mongoose.connect(process.env.MONGODB_URI);
-var {web, rtm, taskPath} = require('./bot');
+var {web, rtm} = require('./bot');
 var  {User, Reminder, Meeting} = require('./models');
 
 //extras
@@ -36,7 +36,7 @@ function getGoogleAuth() {
 
 // functions
 
-var {clearState} = require('./functions.js');
+var {clearState, taskPath} = require('./functions.js');
 
 app.get('/connect', function(req, res){
   var userId = req.query.auth_id;
@@ -170,6 +170,18 @@ app.post('/bot-test', function(req, res){
       // meeting path
 
       else{
+        console.log("meeting path taken");
+        meetingPath(user)
+        .then(flag=>{
+          if(flag){
+            clearState(user);
+            res.send("Meeting has been added to your calendar " + ':pray: :100: :fire:');
+          }
+          else{
+            clearState(user);
+            res.send("Failed to post meeting to calendar")
+          }
+        })
         res.send("dont choose the meeting path yet");
       }
 

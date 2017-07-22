@@ -18,7 +18,8 @@ var userSchema = mongoose.Schema({
   slack_ID: String,
   slack_Username: String,
   slack_Email: String,
-  slack_DM_ID: String
+  slack_DM_ID: String,
+  active: Number
 });
 
 var reminderSchema = mongoose.Schema({
@@ -52,5 +53,5 @@ var Meeting = mongoose.model('Meeting', meetingSchema);
 module.exports = {
     User: User,
     Reminder: Reminder,
-    Meeting: Meeting,  
+    Meeting: Meeting,
 };
