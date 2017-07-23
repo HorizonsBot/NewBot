@@ -92,12 +92,24 @@ var findAttendeesHere = function(user){
   .then(function(people){
     people.forEach(function(item, index){
       if(!item){
-        attendees.push({"slack_ID": array[index], "email":"", "access_token":""});
+        attendees.push({
+          "slack_ID": array[index],
+          "email":"",
+          "access_token":""
+        });
         rtm.sendMessage("say hi",rtm.getDmById(array[index])) // ask jay
-      }else if(!item.googleAccount){
-        attendees.push({"slack_ID": item.id, "email":"", "access_token":""});
-      }else {
-        attendees.push({"slack_ID": item.slack_ID, "email": item.googleAccount.email, "access_token": item.googleAccount.access_token});
+      } else if (!item.googleAccount) {
+        attendees.push({
+          "slack_ID": item.id,
+          "email":"",
+          "access_token":""
+        });
+      } else {
+        attendees.push({
+          "slack_ID": item.slack_ID,
+          "email": item.googleAccount.email,
+          "access_token": item.googleAccount.access_token
+        });
       }
     })
     return attendees;
