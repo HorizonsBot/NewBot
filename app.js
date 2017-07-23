@@ -81,7 +81,9 @@ app.get('/connect/callback', function(req, res){
     return User.findById(req.query.state);
   })
   .then(function(mongoUser) {
+    console.log("CHECK googleUser IN APP.JS", googleUser);
     mongoUser.googleAccount = tokens;
+    mongoUser.googleAccount.email = googleUser.emails[0].value;
     mongoUser.googleAccount.profile_ID = googleUser.id;
     mongoUser.googleAccount.profile_name = googleUser.displayName;
     return mongoUser.save();

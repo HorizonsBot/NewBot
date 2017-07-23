@@ -51,15 +51,20 @@ var taskHandler = function( { result }, message, state ){
         console.log('Message sent: ', res);
       }
     });
-  } else if(result.parameters.subject){
-    state.subject = result.parameters.subject;
-    rtm.sendMessage(result.fulfillment.speech, message.channel);
-  } else if(result.parameters.date){
-    state.date = result.parameters.date;
-    rtm.sendMessage(result.fulfillment.speech, message.channel);
-  }else{
-    rtm.sendMessage(result.fulfillment.speech, message.channel);
-  }
+  // } else if(result.parameters.subject){
+  //   state.subject = result.parameters.subject;
+  //   rtm.sendMessage(result.fulfillment.speech, message.channel);
+  // } else if(result.parameters.date){
+  //   state.date = result.parameters.date;
+  //   rtm.sendMessage(result.fulfillment.speech, message.channel);
+  // }else{
+  //   rtm.sendMessage(result.fulfillment.speech, message.channel);
+  // }
+} else {
+  state.subject = result.parameters.subject;
+  state.date = result.parameters.date;
+  rtm.sendMessage(result.fulfillment.speech, message.channel);
+}
   return state;
 }
 
@@ -113,18 +118,22 @@ var meetingHandler = function( { result }, message, user){
     state.invitees = result.parameters.invitees;
     return {state: state, status: true}
   } else {
-    if(result.parameters.subject){
-      state.subject = result.parameters.subject;
-    }
-    if(result.parameters.date){
-      state.date = result.parameters.date;
-    }
-    if(result.parameters.time){
-      state.time = result.parameters.time;
-    }
-    if(result.parameters.invitees[0]){
-      state.invitees = result.parameters.invitees;
-    }
+    // if(result.parameters.subject){
+    //   state.subject = result.parameters.subject;
+    // }
+    // if(result.parameters.date){
+    //   state.date = result.parameters.date;
+    // }
+    // if(result.parameters.time){
+    //   state.time = result.parameters.time;
+    // }
+    // if(result.parameters.invitees[0]){
+    //   state.invitees = result.parameters.invitees;
+    // }
+    state.subject = result.parameters.subject;
+    state.date = result.parameters.date;
+    state.time = result.parameters.time;
+    state.invitees = result.parameters.invitees;
     rtm.sendMessage(result.fulfillment.speech, message.channel);
     return { state: state, status: false};
   }
@@ -140,8 +149,6 @@ var meetingFunction = function(data, message, user){
     state = meetingHandler(data, message, user).state;
     status = meetingHandler(data, message, user).status;
   }
-
-
   // if(!state.date || !state.invitees[0] || !state.time){
   //   state = meetingHandler(data, message, user).state;
   //   status = meetingHandler(data, message, user).status;
@@ -161,14 +168,14 @@ var meetingFunction = function(data, message, user){
   })
   .then((user) => (user.save()))
   .then((user) => {
-    console.log("USER 2", user);
+    // console.log("USER 2", user);
     if(!status){
       console.log("status is false and asking user for more info");
       return;
     }
     else{
       console.log("status is true and entering validation");
-      console.log("USER 3", user);
+      // console.log("USER 3", user);
       validate(user, message);
     }
   })
@@ -177,17 +184,18 @@ var meetingFunction = function(data, message, user){
   })
 }
 
-var setString = function(myString, state){
-  var myArray = myString.split(' ');
-  myArray.forEach(function(item, index){
-    if(item[0]==='<'){
-      item = item.substring(2,item.length-1);
-      state.inviteesBySlackid.push(item);
-      myArray[index] = rtm.dataStore.getUserById(item).real_name;
-    }
-  });
-  return myArray.join(' ');
-}
+// var setString = function(myString, state){
+  // var myArray = myString.split(' ');
+  // myArray.forEach(function(item, index){
+  //   if(item[0]==='<'){
+  //     item = item.substring(2,item.length-1);
+  //     state.inviteesBySlackid.push(item);
+  //     myArray[index] = rtm.dataStore.getUserById(item).real_name;
+  //   }
+  // });
+  // return myArray.join(' ');
+  // var regex = /<@\w+>/g;
+// }
 
 var setMeeting = function(user, message){
   console.log("entered setMeeting function");
@@ -196,7 +204,16 @@ var setMeeting = function(user, message){
 
   if(message.text.indexOf('with') !== -1){
     console.log("invitees have been provided, setting state and reqString");
-    reqString = setString(message.text, user.pendingState);
+    var regex = /<@\w+>/g;
+    message.text = message.text.replace(regex, function(match) {
+      var userId = match.slice(2, -1);
+      user.pendingState.inviteesBySlackid.push(userId);
+      var invitee = rtm.dataStore.getUserById(userId);
+      console.log("SLACK USERS", userId, invitee);
+      return invitee.profile.first_name || invitee.profile.real_name;
+    })
+
+    // reqString = setString(message.text, user.pendingState);
     promise = user.save();
   }
 

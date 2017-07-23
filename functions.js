@@ -28,6 +28,7 @@ var checkAccessToken = ( user ) => {
        rtm.sendMessage('Refreshing user access_token', user.slack_DM_ID);
        console.log("REFRESH ACTOKEN PROCESS, TOKENS:", tokens);
        user.googleAccount = Object.assign({}, user.googleAccount, tokens);
+       console.log("CHECK GOOGLEACCOUNT in checkAccessToken (functions.js)", user.googleAccount);
        return user.save(function() {
          return user;
        })
@@ -110,6 +111,7 @@ var findAttendees = (state) => {
           attendees.push({"email": item.googleAccount.email});
       }
     })
+    console.log("CHECK ATTENDEES Array in findAttendees (functions.js)", attendees);
     return attendees;
   })
 

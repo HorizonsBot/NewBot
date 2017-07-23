@@ -6,6 +6,7 @@ var rtm = new RtmClient(token);
 var {User, Reminder, Meeting} = require('./models');
 var {getSlots} = require('./getSlots');
 var {getConObject} = require('./getConObject');
+var {calculateStartTimeString} = require('./functions')
 var axios = require('axios');
 var moment = require('moment');
 var _ = require('underscore');
@@ -39,10 +40,18 @@ var obj = {
 
 var timeCheck = function(user, message){
   console.log("entered time check");
-  var date = new Date();
-  var hourNow = date.getHours();
-  var meetingHour = parseInt(user.pendingState.time.substring(0,2));
-  if(meetingHour - hourNow < 4 ){
+  console.log("MESSAGE", message);
+  var dateNow = new Date();
+  var dateArr = user.pendingState.date.split('-');
+  var timeArr = user.pendingState.time.split('-');
+  var dateMeet = new Date(Date.UTC(dateArr[0], dateArr[1]-1, dateArr[2], timeArr[0]+7, timeArr[1], timeArr[2]));
+  //note changes for month, and GMT-700 timezone
+  var hoursDiff = Math.abs(dateNow - dateMeet) / 36e5;
+
+  // var date = new Date();
+  // var hourNow = date.getHours();
+  // var meetingHour = parseInt(user.pendingState.time.substring(0,2));
+  if(hoursDiff < 4 ){
       obj.attachments[0].text = `Too soon to schedule a meeting bro`;
       obj.attachments.actions = [{
         "name": "cancel",
@@ -112,9 +121,16 @@ var findAttendeesHere = function(user){
         });
       }
     })
-    return attendees;
+    console.log("ATTENDEES ARRAY in findAttendeesHere", attendees);
+    return new Promise(function(resolve, reject) {
+      resolve(attendees);
+      // reject(err);
+    })
+    // return attendees;
   })
-
+  .catch(function(err) {
+    console.log("Error in findAttendeesHere", err);
+  })
 }
 
 var pendingFunction = function(user, attendees){
@@ -141,12 +157,15 @@ var pendingFunction = function(user, attendees){
   })
 }
 
+// var bluebird = require('bluebird')
+
 var checkConflict = function(user){
   console.log("entered check conflict");
-
-  return findAttendeesHere(user)
-  .then(attendees => {
-    console.log("attendees recieved proceeding to check calendars");
+  var attendees = findAttendeesHere(user)
+  attendees = Promise.resolve(attendees);
+  attendees
+  .then((attendees) => {
+    console.log("attendees received, proceeding to check calendars");
     var calendarPromises = [];
     var attendeeCalendars;
     var busyArray = [];
@@ -198,27 +217,30 @@ var checkConflict = function(user){
               console.log("there is no conflict");
               return "NoConflict"; //  no conflict;
             }
-
-            return getSlots(busyArray, user);
+            return new Promise(function(resolve, reject) {
+              var gotSlots = getSlots(busyArray, user);
+              resolve(gotSlots);
+              // reject();
+            })
+            // return getSlots(busyArray, user);
         })
         .catch(function(err){
           console.log(err)
         });
 
-
   })
 }
 
-var setString = function(myString){
-  var myArray = myString.split(' ');
-  myArray.forEach(function(item,index){
-    if(item[0]==='<'){
-      item = item.substring(2,item.length-1);
-      myArray[index] = rtm.dataStore.getUserById(item).real_name;
-    }
-  });
-  return myArray.join(' ');
-}
+// var setString = function(myString){
+//   var myArray = myString.split(' ');
+//   myArray.forEach(function(item,index){
+//     if(item[0]==='<'){
+//       item = item.substring(2,item.length-1);
+//       myArray[index] = rtm.dataStore.getUserById(item).real_name;
+//     }
+//   });
+//   return myArray.join(' ');
+// }
 
 
 var validate = function(user, message){
@@ -229,20 +251,30 @@ var validate = function(user, message){
   }
   else{
     console.log("time check returned true proceeding to conflict check");
-    checkConflict(user)
-    .then( response => {
-      if (response === "People are unavailable"){
+    var response = checkConflict(user);
+    response = Promise.resolve(response)
+    response
+    .then((response) => {
+      if (response === "People are unavailable") {
         rtm.sendMessage("People are unavailable, the request has been sent to them, meeting will be scheduled once they accept it.", user.slack_DM_ID);
-      } else if (response === 'NoConflict'){
+      } else if (response === 'NoConflict') {
         console.log("there was no conflict");
-        var inviteString = setString(message.text);
-        obj.attachments[0].text = `Schedule meeting with ${inviteString} on ${user.pendingState.date} ${user.pendingState.time} about ${user.pendingState.subject}`;
+        var regex = /<@\w+>/g;
+        message.text = message.text.replace(regex, function(match) {
+          var userId = match.slice(2, -1);
+          var invitee = rtm.dataStore.getUserById(userId);
+          console.log("Inside Validate, SLACK USERS", userId, invitee);
+          return invitee.profile.first_name || invitee.profile.real_name;
+        })
+        // var inviteString = setString(message.text);
+        obj.attachments[0].text = `Schedule meeting with ${message.text} on ${user.pendingState.date} ${user.pendingState.time} about ${user.pendingState.subject}`;
         web.chat.postMessage(message.channel, "Scheduler Bot", obj,function(err, res) {
           if (err) console.log('Error:', err);
           else console.log('Message sent: ', res);
         });
       } else {
         console.log("entered conflict");
+        console.log("RESPONSE", response);
         var targetObj = getConObject(response);
         web.chat.postMessage(message.channel, "Scheduler Bot", targetObj,function(err, res) {
           if (err) console.log('Error:', err);
