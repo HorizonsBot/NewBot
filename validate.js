@@ -97,7 +97,7 @@ var findAttendeesHere = function(user){
     attendeesPromises.push(User.findOne({slack_ID:item}));
   })
 
-  Promise.all(attendeesPromises)
+  return Promise.all(attendeesPromises)
   .then(function(people){
     people.forEach(function(item, index){
       if(!item){
@@ -124,7 +124,6 @@ var findAttendeesHere = function(user){
     console.log("ATTENDEES ARRAY in findAttendeesHere", attendees);
     return new Promise(function(resolve, reject) {
       resolve(attendees);
-      // reject(err);
     })
     // return attendees;
   })
@@ -162,10 +161,9 @@ var pendingFunction = function(user, attendees){
 var checkConflict = function(user){
   console.log("entered check conflict");
   var attendees = findAttendeesHere(user)
-  attendees = Promise.resolve(attendees);
-  attendees
+  return attendees
   .then((attendees) => {
-    console.log("attendees received, proceeding to check calendars");
+    console.log("ATTENDEES  received,", attendees, " proceeding to check calendars");
     var calendarPromises = [];
     var attendeeCalendars;
     var busyArray = [];
@@ -217,11 +215,7 @@ var checkConflict = function(user){
               console.log("there is no conflict");
               return "NoConflict"; //  no conflict;
             }
-            return new Promise(function(resolve, reject) {
-              var gotSlots = getSlots(busyArray, user);
-              resolve(gotSlots);
-              // reject();
-            })
+            return Promise.resolve(getSlots(busyArray, user));
             // return getSlots(busyArray, user);
         })
         .catch(function(err){
@@ -251,8 +245,12 @@ var validate = function(user, message){
   }
   else{
     console.log("time check returned true proceeding to conflict check");
-    var response = checkConflict(user);
-    response = Promise.resolve(response)
+    // var response = checkConflict(user);
+    var response;
+    response = Promise.resolve(checkConflict(user));
+
+    console.log("IS RESPONSE A PROMISE", response);
+    // response = Promise.resolve(response)
     response
     .then((response) => {
       if (response === "People are unavailable") {
