@@ -34,5 +34,5 @@ var getConObject = function(array){
 }
 
 module.exports = {
-  getConObject;
+  getConObject
 }

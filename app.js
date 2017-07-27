@@ -1,10 +1,9 @@
 'use strict';
 
-
 var mongoose = require('mongoose');
 mongoose.connect(process.env.MONGODB_URI);
 var {web, rtm} = require('./bot');
-var  {User, Reminder, Meeting} = require('./models');
+var {User, Reminder, Meeting} = require('./models');
 
 //extras
 
@@ -25,18 +24,10 @@ app.use(bodyParser.urlencoded({extended: false}));
 //google
 
 var google = require('googleapis');
-var OAuth2 = google.auth.OAuth2;
-function getGoogleAuth() {
-  return new OAuth2(
-    process.env.GOOGLE_CLIENT_ID,
-    process.env.GOOGLE_CLIENT_SECRET,
-    process.env.DOMAIN + '/connect/callback'
-  );
-}
 
 // functions
 
-var {clearState, taskPath} = require('./functions.js');
+var {clearState, taskPath, meetingPath, getGoogleAuth} = require('./functions.js');
 
 app.get('/connect', function(req, res){
   var userId = req.query.auth_id;
@@ -90,7 +81,9 @@ app.get('/connect/callback', function(req, res){
     return User.findById(req.query.state);
   })
   .then(function(mongoUser) {
+    console.log("CHECK googleUser IN APP.JS", googleUser);
     mongoUser.googleAccount = tokens;
+    mongoUser.googleAccount.email = googleUser.emails[0].value;
     mongoUser.googleAccount.profile_ID = googleUser.id;
     mongoUser.googleAccount.profile_name = googleUser.displayName;
     return mongoUser.save();
