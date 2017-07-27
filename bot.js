@@ -36,9 +36,11 @@ var obj = {
   ]
 }
 
-var {validate} = require('./validate')
+var {validate} = require('./validate');
+var { checkAccessToken } = require('./functions');
 
 var taskHandler = function({result}, message, state){
+  
   if(result.parameters.date && result.parameters.subject){
     state.date = result.parameters.date; state.subject = result.parameters.subject;
     obj.attachments[0].text = `Create task to ${state.subject} on ${state.date}`;
@@ -194,7 +196,7 @@ var mainResponseFunction = function(user, message){
       user.active = 2;
     }else {
       console.log("user is wasting time");
-      sendNormalResponse(message);
+      //sendNormalResponse(message);
       return;
     }
   }
@@ -225,7 +227,7 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message){
     if(!user){
       console.log("did not find user creating one");
       var user = new User({
-        default_meeting_len: 30,
+       // default_meeting_len: 30,
         slack_ID: message.user,
         slack_Username: slackUser.profile.real_name,
         slack_Email: slackUser.profile.email,
@@ -259,7 +261,7 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message){
         }
         else {
           console.log("user was not active but has google auth now sending to mainResponseFunction");
-          if(user)mainResponseFunction(user, message);
+          if(user){mainResponseFunction(user, message);checkAccessToken(user);}
           else return;
         }
       }

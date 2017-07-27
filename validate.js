@@ -3,14 +3,14 @@ var token = process.env.SLACK_SECRET || '';
 var web = new WebClient(token);
 var rtm = new RtmClient(token);
 
-var  {User, Reminder, Meeting} = require('./models');
+var {User, Reminder, Meeting} = require('./models');
 var {getSlots} = require('./getSlots');
 var {getConObject} = require('./getConObject');
 var axios = require('axios');
 var moment = require('moment');
 var _ = require('underscore');
 moment().format();
-var {checkAccessToken} = require('./functions');
+var {checkAccessToken, calculateStartTimeString} = require('./functions');
 
 var obj = {
   "attachments": [
@@ -40,18 +40,26 @@ var obj = {
 
 var timeCheck = function(user, message){
   console.log("entered time check");
-  var date = new Date();
-  var hourNow = date.getHours();
-  var meetingHour = parseInt(user.pendingState.time.substring(0,2));
-  if(meetingHour - hourNow < 4 ){
-      obj.attachments[0].text = `Too soon bro`;
+  console.log("MESSAGE", message);
+  var dateNow = new Date();
+  var dateArr = user.pendingState.date.split('-');
+  var timeArr = user.pendingState.time.split('-');
+  var dateMeet = new Date(Date.UTC(dateArr[0], dateArr[1]-1, dateArr[2], timeArr[0]+7, timeArr[1], timeArr[2]));
+  //note changes for month, and GMT-700 timezone
+  var hoursDiff = Math.abs(dateNow - dateMeet) / 36e5;
+
+  // var date = new Date();
+  // var hourNow = date.getHours();
+  // var meetingHour = parseInt(user.pendingState.time.substring(0,2));
+  if(hoursDiff < 4 ){
+      obj.attachments[0].text = `Too soon to schedule a meeting bro`;
       obj.attachments.actions = [{
         "name": "cancel",
         "text": "Cancel",
         "type": "button",
         "value": "cancel"
       }]
-      web.chat.postMessage(message.channel, "Scheduler Bot", obj,function(err, res) {
+      web.chat.postMessage(message.channel, "Scheduler Bot", obj, function(err, res) {
           if (err) console.log('Error:', err);
           else console.log('Message sent: ', res);
      });
@@ -59,7 +67,6 @@ var timeCheck = function(user, message){
   }
   else return true;
 }
-
 var findAttendeesHere = function(user){
   // var state = user.pendingState;
   // console.log("finding attendees here");
@@ -107,9 +114,10 @@ var findAttendeesHere = function(user){
 }
 
 var pendingFunction = function(user, attendees){
+  var requester = user;
   console.log("entered pending function saving meeting in database");
   var state = user.pendingState;
-  var meeting = new models.Meeting({
+  var meeting = new Meeting({
     eventId: meetings,
     date: state.date,
     time: state.time,
@@ -122,7 +130,7 @@ var pendingFunction = function(user, attendees){
     console.log("sending direct message to everyone");
     if(attendee.email===''){
       User.findOne({slack_ID:attendee.slack_ID},function(err,user){
-        rtm.sendMessage('People want access to your calendar. Use this link to give access to your google cal account ' + process.env.DOMAIN + '/connect?auth_id='
+        rtm.sendMessage(`User ${requester.slack_Username} is trying to schedule a meeting with you and the scheduler bot needs access to your Google calendar. Use this link to grant access: ` + process.env.DOMAIN + '/connect?auth_id='
         + user._id, user.slack_DM_ID);
       });
     }
@@ -226,7 +234,7 @@ var validate = function(user, message){
       } else if (response === 'NoConflict'){
         console.log("there was no conflict");
         var inviteString = setString(message.text);
-        obj.attachments[0].text = `Schedule meeting with ${inviteString} on ${state.date} ${state.time} about ${state.subject}`;
+        obj.attachments[0].text = `Schedule meeting with ${inviteString} on ${user.pendingState.date} ${user.pendingState.time} about ${user.pendingState.subject}`;
         web.chat.postMessage(message.channel, "Scheduler Bot", obj,function(err, res) {
           if (err) console.log('Error:', err);
           else console.log('Message sent: ', res);
