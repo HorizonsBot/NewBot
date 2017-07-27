@@ -62,6 +62,7 @@ var taskHandler = function({result}, message, state){
 }
 
 var taskFunction = function(data, message, user){
+  console.log("entered taskFunction");
   var state = user.pendingState;
   if(!state.date || !state.subject){
       state = taskHandler(data, message, state);
@@ -75,7 +76,7 @@ var taskFunction = function(data, message, user){
 }
 
 var setTask = function(user, message){
-
+  console.log("entered setTask");
   var temp = encodeURIComponent(message.text);
 
   axios.get(`https://api.api.ai/api/query?v=20150910&query=${temp}&lang=en&sessionId=${message.user}`, {
@@ -88,7 +89,7 @@ var setTask = function(user, message){
   })
 }
 
-var meetingHandler = function(data, message, user){
+var meetingHandler = function({result}, message, user){
 
   var state = user.pendingState;
   if(result.parameters.date && result.parameters.time && result.parameters.invitees[0]){
@@ -116,6 +117,7 @@ var meetingHandler = function(data, message, user){
 }
 
 var meetingFunction = function(data, message, user){
+  console.log("reached meetingFunction");
   var state = user.pendingState;
   if(!state.date || !state.invitees[0] || !state.time){
     state = meetingHandler(data, message, user).state;
@@ -128,7 +130,7 @@ var meetingFunction = function(data, message, user){
     status = meetingHandler(data, message, user).status;
   }
   user.pendingState = state;
-  user.save(function(user){
+  user.save(function(err, user){
     if(!status){
       console.log("status is false and asking user for more info");
       return;
@@ -149,6 +151,7 @@ var setString = function(myString, state){
       myArray[index] = rtm.dataStore.getUserById(item).real_name;
     }
   });
+  console.log("in setString function", myArray.join(' '));
   return myArray.join(' ');
 }
 
@@ -165,6 +168,7 @@ var setMeeting = function(user, message){
 
   promise
   .then(function(user){
+    console.log("entered the promise after settingstring and saving user");
     var temp = encodeURIComponent(reqString);
     axios.get(`https://api.api.ai/api/query?v=20150910&query=${temp}&lang=en&sessionId=${message.user}`, {
       "headers": {
@@ -172,6 +176,7 @@ var setMeeting = function(user, message){
       },
     })
     .then(function({data}){
+      console.log("sending to meetingFunction");
       meetingFunction(data, message, user);
     })
   })

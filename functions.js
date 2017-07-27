@@ -4,6 +4,27 @@ var moment = require('moment');
 var _ = require('underscore');
 moment().format();
 
+var checkAccessToken = ( user ) => {
+  var curTime = Date.now();
+  if ( curTime > user.googleAccount.expiry_date ) {
+    console.log("EXPIRED ACCESS TOKEN");
+    var googleAuth = getGoogleAuth();
+    googleAuth.setCredentials(user.googleAccount);
+    return googleAuth.refreshAccessToken(function(err, tokens) {
+       rtm.sendMessage('Refreshing user access_token', user.slack_DM_ID);
+       console.log("REFRESH ACTOKEN PROCESS, TOKENS:", tokens);
+       user.googleAccount = Object.assign({}, user.googleAccount, tokens);
+       console.log("CHECK GOOGLEACCOUNT in checkAccessToken (functions.js)", user.googleAccount);
+       return user.save(function() {
+         return user;
+       })
+    })
+  } else {
+    console.log('token still good homie');
+    return user;
+  }
+}
+
 var clearState = function(user){
   user.pendingState = {
     subject: "",
@@ -19,7 +40,7 @@ var clearState = function(user){
 }
 
 var taskPath = function (user) {
-
+    console.log("entered taskPath");
     if(user){
       var state = user.pendingState;
       var new_event = {
@@ -73,7 +94,7 @@ function findAttendees(state){
       var id = item.slack_ID;
       console.log(item);
       if(state.inviteesBySlackid.indexOf(id) !== -1){
-          attendees.push({"email": item.googleAccount.email);
+          attendees.push({"email": item.googleAccount.email});
       }
     })
     return attendees;
@@ -158,5 +179,6 @@ var meetingPath = function(user){
 module.exports = {
   clearState,
   taskPath,
-  meetingPath
+  meetingPath,
+  checkAccessToken
 }

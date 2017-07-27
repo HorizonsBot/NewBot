@@ -10,6 +10,7 @@ var axios = require('axios');
 var moment = require('moment');
 var _ = require('underscore');
 moment().format();
+var {checkAccessToken} = require('./functions');
 
 var obj = {
   "attachments": [
@@ -88,7 +89,7 @@ var findAttendeesHere = function(user){
     attendeesPromises.push(User.findOne({slack_ID:item}));
   })
 
-  Promise.all(attendeesPromises)
+  return Promise.all(attendeesPromises)
   .then(function(people){
     people.forEach(function(item, index){
       if(!item){
@@ -144,10 +145,12 @@ var checkConflict = function(user){
         pendingFunction(user, attendees);
         return "People are unavailable";
       }
+      attendee = checkAccessToken
       var email = encodeURIComponent(attendee.email);
       var calendarStart = new Date().toISOString();
       var timeMin = encodeURIComponent(calendarStart);
       var accessToken = encodeURIComponent(attendee.access_token);
+
       calendarPromises.push(axios.get(`https://www.googleapis.com/calendar/v3/calendars/${email}/events?timeMin=${timeMin}&access_token=${accessToken}`))
     })
 
