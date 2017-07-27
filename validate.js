@@ -10,6 +10,7 @@ var axios = require('axios');
 var moment = require('moment');
 var _ = require('underscore');
 moment().format();
+var {calculateStartTimeString} = require('./functions');
 
 var obj = {
   "attachments": [
@@ -39,10 +40,18 @@ var obj = {
 
 var timeCheck = function(user, message){
   console.log("entered time check");
-  var date = new Date();
-  var hourNow = date.getHours();
-  var meetingHour = parseInt(user.pendingState.time.substring(0,2));
-  if(meetingHour - hourNow < 4 ){
+  console.log("MESSAGE", message);
+  var dateNow = new Date();
+  var dateArr = user.pendingState.date.split('-');
+  var timeArr = user.pendingState.time.split('-');
+  var dateMeet = new Date(Date.UTC(dateArr[0], dateArr[1]-1, dateArr[2], timeArr[0]+7, timeArr[1], timeArr[2]));
+  //note changes for month, and GMT-700 timezone
+  var hoursDiff = Math.abs(dateNow - dateMeet) / 36e5;
+
+  // var date = new Date();
+  // var hourNow = date.getHours();
+  // var meetingHour = parseInt(user.pendingState.time.substring(0,2));
+  if(hoursDiff < 4 ){
       obj.attachments[0].text = `Too soon to schedule a meeting bro`;
       obj.attachments.actions = [{
         "name": "cancel",
@@ -58,7 +67,6 @@ var timeCheck = function(user, message){
   }
   else return true;
 }
-
 var findAttendeesHere = function(user){
   // var state = user.pendingState;
   // console.log("finding attendees here");
@@ -88,7 +96,7 @@ var findAttendeesHere = function(user){
     attendeesPromises.push(User.findOne({slack_ID:item}));
   })
 
-  Promise.all(attendeesPromises)
+  return Promise.all(attendeesPromises)
   .then(function(people){
     people.forEach(function(item, index){
       if(!item){
