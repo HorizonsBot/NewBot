@@ -36,7 +36,7 @@ function getGoogleAuth() {
 
 // functions
 
-var {clearState, taskPath} = require('./functions.js');
+var {clearState, taskPath, meetingPath} = require('./functions.js');
 
 app.get('/connect', function(req, res){
   var userId = req.query.auth_id;
@@ -91,6 +91,7 @@ app.get('/connect/callback', function(req, res){
   })
   .then(function(mongoUser) {
     mongoUser.googleAccount = tokens;
+    mongoUser.googleAccount.email = googleUser.emails[0].value;
     mongoUser.googleAccount.profile_ID = googleUser.id;
     mongoUser.googleAccount.profile_name = googleUser.displayName;
     return mongoUser.save();
