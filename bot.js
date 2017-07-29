@@ -40,7 +40,7 @@ var {validate} = require('./validate');
 var { checkAccessToken } = require('./functions');
 
 var taskHandler = function({result}, message, state){
-  
+
   if(result.parameters.date && result.parameters.subject){
     state.date = result.parameters.date; state.subject = result.parameters.subject;
     obj.attachments[0].text = `Create task to ${state.subject} on ${state.date}`;
@@ -211,7 +211,6 @@ var mainResponseFunction = function(user, message){
 
 }
 
-
 rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message){
 
   var dm = rtm.dataStore.getDMByUserId(message.user);
@@ -261,7 +260,10 @@ rtm.on(RTM_EVENTS.MESSAGE, function handleRtmMessage(message){
         }
         else {
           console.log("user was not active but has google auth now sending to mainResponseFunction");
-          if(user){mainResponseFunction(user, message);checkAccessToken(user);}
+          if(user){
+            user = checkAccessToken(user);
+            mainResponseFunction(user, message);
+          }
           else return;
         }
       }

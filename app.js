@@ -126,30 +126,6 @@ app.post('/bot-test', function(req, res){
     User.findOne({slack_ID: payload.user.id})
     .then(function(user){
 
-      //refresh access token
-      console.log("checking refresh");
-      if(curTime > user.googleAccount.expiry_date){
-        console.log("refreshing token");
-        var googleAuth = getGoogleAuth();
-        googleAuth.setCredentials(user.googleAccount);
-        return googleAuth.refreshAccessToken(function(err, tokens){
-          user.googleAccount = Object.assign({},user.googleAccount, tokens);
-          return user.save(function(){
-            return user;
-          })
-        })
-      }
-
-      //access token is valid
-
-      else{
-        console.log("no refresh has been done");
-        return user;
-      }
-
-    })
-    .then(function(user){
-
       // task path
       console.log("checking which path to take");
 
@@ -172,20 +148,44 @@ app.post('/bot-test', function(req, res){
 
       else{
         console.log("meeting path taken");
-        meetingPath(user)
-        .then(flag=>{
-          if(flag){
-            clearState(user);
-            res.send("Meeting has been added to your calendar " + ':pray: :100: :fire:');
-          }
-          else{
-            clearState(user);
-            res.send("Failed to post meeting to calendar")
-          }
-        })
-        res.send("dont choose the meeting path yet");
-      }
 
+        if(payload.actions[0].name==='alt_dates'){
+          
+          var newDate = payload.actions[0].selected_options[0];
+          newDate = newDate.value.split(' ');
+          user.pendingState.date = newDate[0];
+          user.pendingState.time = newDate[1] + ":00";
+          user.save(function(err,user){
+
+            meetingPath(user).then((flag) => {
+                console.log("FLAG", flag);
+                if(flag){
+                  clearState(user);
+                  res.send("Meeting has been added to your calendar " + ':pray: :100: :fire:');
+                }else{
+                  clearState(user);
+                  res.send("Failed to post meeting to calendar")
+                }
+            });
+
+          });
+        }
+        else{
+          meetingPath(user)
+          .then(function(flag){
+            console.log("after meetingPath we have flag = " , flag);
+            if(flag){
+              clearState(user);
+              res.send("Meeting has been added to your calendar " + ':pray: :100: :fire:');
+            }
+            else{
+              clearState(user);
+              res.send("Failed to post meeting to calendar")
+            }
+          })
+        }
+
+      }
 
     })
   }

@@ -25,11 +25,13 @@ var dropdown_obj = {
 }
 
 var getConObject = function(array){
-  var tempObj = dropdown_obj;
+  console.log("getConObject gets this array", array);
+  var tempObj = Object.assign({}, dropdown_obj);
+  tempObj.attachments[0].actions[0].options = [];
   for(var i = 0 ;i < array.length; i++ ){
     tempObj.attachments[0].actions[0].options.push({"text":array[i], "value":array[i]})
   }
-  console.log('TEMPOBJ HERE ==>>> ', tempObj);
+  console.log('TEMPOBJ HERE ==>>> ', tempObj.attachments[0].actions[0].options);
   return tempObj;
 }
 

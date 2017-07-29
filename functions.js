@@ -4,25 +4,77 @@ var moment = require('moment');
 var _ = require('underscore');
 moment().format();
 
+var google = require('googleapis');
+var OAuth2 = google.auth.OAuth2;
+function getGoogleAuth() {
+  return new OAuth2(
+    process.env.GOOGLE_CLIENT_ID,
+    process.env.GOOGLE_CLIENT_SECRET,
+    process.env.DOMAIN + '/connect/callback'
+  );
+}
+
 var checkAccessToken = ( user ) => {
+
   var curTime = Date.now();
   if ( curTime > user.googleAccount.expiry_date ) {
     console.log("EXPIRED ACCESS TOKEN");
+
     var googleAuth = getGoogleAuth();
     googleAuth.setCredentials(user.googleAccount);
+
     return googleAuth.refreshAccessToken(function(err, tokens) {
-       rtm.sendMessage('Refreshing user access_token', user.slack_DM_ID);
-       console.log("REFRESH ACTOKEN PROCESS, TOKENS:", tokens);
-       user.googleAccount = Object.assign({}, user.googleAccount, tokens);
-       console.log("CHECK GOOGLEACCOUNT in checkAccessToken (functions.js)", user.googleAccount);
-       return user.save(function() {
-         return user;
-       })
+      console.log("REFRESH ACTOKEN PROCESS, TOKENS:", tokens);
+      user.googleAccount = Object.assign({}, user.googleAccount, tokens);
+      console.log("CHECK GOOGLEACCOUNT in checkAccessToken (functions.js)", user.googleAccount);
+
+      return user.save(function(err,user){
+       return user;
+      })
+
     })
-  } else {
-    console.log('token still good homie');
+
+  }
+  else {
+    console.log('token still good of the guy using the bot.');
     return user;
   }
+}
+
+var checkThis = (attendee) => {
+  console.log("entered check this");
+
+  return User.findOne({slack_ID:attendee.slack_ID})
+  .then(function(user){
+    console.log(user.slack_Username);
+    var curTime = Date.now();
+    if ( curTime > user.googleAccount.expiry_date ) {
+      console.log("EXPIRED ACCESS TOKEN");
+      var googleAuth = getGoogleAuth();
+      googleAuth.setCredentials(user.googleAccount);
+      googleAuth.refreshAccessToken(function(err, tokens) {
+         console.log("REFRESH ACTOKEN PROCESS, TOKENS:", tokens);
+         user.googleAccount = Object.assign({}, user.googleAccount, tokens);
+         console.log("CHECK GOOGLEACCOUNT in checkAccessToken (functions.js)", user.googleAccount);
+         user.save(function(user) {
+           return user;
+         })
+      })
+    }
+    else {
+      console.log('token still good');
+      return user;
+    }
+  })
+  .then(function(user){
+    console.log("setting access token of attendee from user");
+    attendee.access_token = user.googleAccount.access_token;
+    console.log("from checkThis passing this attendee");
+    return attendee;
+  })
+  .catch(function(error){
+    console.log("error", error);
+  })
 }
 
 var clearState = function(user){
@@ -92,7 +144,6 @@ function findAttendees(state){
     var attendees = [];
     users.forEach(function(item){
       var id = item.slack_ID;
-      console.log(item);
       if(state.inviteesBySlackid.indexOf(id) !== -1){
           attendees.push({"email": item.googleAccount.email});
       }
@@ -125,9 +176,8 @@ var meetingPath = function(user){
     var subject = state.subject || 'DEFAULT MEETING SUBJECT';
 
     if(user){
-
     return findAttendees(state)
-    .then((attendees) => {
+    .then(function(attendees){
 
       var new_event = {
         "end": {
@@ -160,7 +210,10 @@ var meetingPath = function(user){
           }
         });
 
-        if(response.status === 200)return true;
+        if(response.status === 200){
+          console.log("this is the response status", response.status);
+          return true;
+        }
         else return false;
 
       })
@@ -168,11 +221,10 @@ var meetingPath = function(user){
         console.log(err);
       })
     })
-    .catch( error => {
+    .catch( function(error) {
       console.log(error);
     })
   }
-
 }
 
 
@@ -180,5 +232,6 @@ module.exports = {
   clearState,
   taskPath,
   meetingPath,
-  checkAccessToken
+  checkAccessToken,
+  checkThis
 }

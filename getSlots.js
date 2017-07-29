@@ -18,8 +18,6 @@ var getWeekArray = function(date, time){
         current.add(30, 'minutes');
   }
 
-  console.log("original weekArray", result);
-
   result = result.filter(function(item){
     var item = item.split(' ');
     var time = parseInt(item[1].substring(0,2));
@@ -40,8 +38,6 @@ var limitWeekArray = function(weekArray){
     finalArray.push([]);
   }
 
-  console.log("finalArray", finalArray);
-
   var j = 0 ;
 
   for(var i=0;i<weekArray.length; i++){
@@ -60,8 +56,6 @@ var limitWeekArray = function(weekArray){
     }
     finalArray[j].push(weekArray[i]);
   }
-
-  console.log("finalArray", finalArray);
   var mainArray = [];
   var k=0;
   while(mainArray.length!==10){
@@ -78,14 +72,11 @@ var cutWeekArray = function(busyArray, state){
 
   var weekArray = getWeekArray(state.date, state.time);
 
-  console.log("weekArray", weekArray);
-
   for(var i=0;i<busyArray.length;i+=2){
     var x = weekArray.indexOf(busyArray[i]);
     var y = weekArray.indexOf(busyArray[i+1]);
     if(x!==-1)weekArray.splice(x,y-x);
   }
-  console.log("after cutting weekArray", weekArray);
   return limitWeekArray(weekArray);
 } // returns week array with available time slots
 
