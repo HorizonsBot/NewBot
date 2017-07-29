@@ -273,7 +273,12 @@ var validate = function(user, message){
       } else if (response === 'NoConflict'){
         console.log("there was no conflict");
         var inviteString = setString(message.text, user);
-        obj.attachments[0].text = `Schedule meeting with ${inviteString} on ${user.pendingState.date} ${user.pendingState.time} about ${user.pendingState.subject}`;
+        console.log('andrew look here ', user);
+        if(user.pendingState.subject){
+          obj.attachments[0].text = `Confirm a meeting with ${user.pendingState.invitees.join(', ')} on ${user.pendingState.date} at ${user.pendingState.time} about ${user.pendingState.subject}`
+        }else{
+          obj.attachments[0].text = `Confirm a meeting with ${user.pendingState.invitees.join(', ')} on ${user.pendingState.date} at ${user.pendingState.time}`
+        }
         web.chat.postMessage(message.channel, "Scheduler Bot", obj,function(err, res) {
           if (err) console.log('Error:', err);
           else console.log('Message sent: ', res);
