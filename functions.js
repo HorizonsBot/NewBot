@@ -173,7 +173,7 @@ var meetingPath = function(user){
     var state = user.pendingState;
     var start = calculateStartTimeString(state);
     var end = calculateEndTimeString(state);
-    var subject = state.subject || 'DEFAULT MEETING SUBJECT';
+    var subject = state.subject || ' ';
 
     if(user){
     return findAttendees(state)
