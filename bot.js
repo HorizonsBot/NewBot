@@ -95,6 +95,9 @@ var meetingHandler = function({result}, message, user){
 
   var state = user.pendingState;
   if(result.parameters.date && result.parameters.time && result.parameters.invitees[0]){
+    if(result.parameters.subject){
+      state.subject = result.parameters.subject;
+    }
     state.date = result.parameters.date;
     state.time = result.parameters.time;
     state.invitees = result.parameters.invitees;
